@@ -1,0 +1,62 @@
+seed: 42
+batch_size: 8  # physical batch for 16GB GPUs
+grad_accum_steps: 2  # effective batch size = 16, matching the paper
+num_workers: 8  # 24 cores available, leave headroom for main process + GPU
+point_cloud_size: 2048
+depth_resolution: 224
+num_views: 10  # CLIP2Point was trained with 10 views
+
+# Base training
+base_epochs: 100  # large cap; early stopping below decides when to stop
+base_lr: 5.0e-4  # paper setting for base task training
+base_weight_decay: 1.0e-4
+augmentation: true  # random scale + translation
+
+# Incremental training
+inc_epochs: 50  # large cap; early stopping below decides when to stop
+inc_lr: 1.0e-3
+inc_lr_min: 1.0e-4
+inc_weight_decay: 1.0e-4
+augmentation: false
+
+# Early stopping monitors validation accuracy.
+early_stopping: true
+early_stop_min_delta: 0.001
+base_early_stop_warmup: 20
+base_early_stop_patience: 15
+inc_early_stop_warmup: 8
+inc_early_stop_patience: 8
+
+# BND
+bnd_epochs: 10
+bnd_lr: 1.0e-3
+bnd_threshold: 0.1
+
+# SAGR
+sagr_layers: [0, 4, 8]  # L_r
+mask_ratio: 0.9
+num_sa_layers: 2  # N_sa
+
+# Loss weights
+alpha: 1.0  # mask consistency loss weight
+beta: 0.1   # color alignment loss weight (reduced: frozen CLIP makes color_loss plateau)
+gamma: 2.0  # knowledge distillation loss weight (anti-forgetting)
+use_clip_logits_during_training: true  # match paper logits during training
+clip_logit_weight: 1.0
+
+# Exemplar
+exemplars_per_class: 1
+
+# Text template
+text_template: "a photo of a {}"
+
+# Model dimensions
+recon_feat_dim: 384  # ReCon actual trans_dim
+recon_num_layers: 12
+depth_feat_dim: 512
+depth_num_layers: 12
+clip_feat_dim: 512
+
+# Paths
+recon_ckpt_path: "deps/ReCon/pretrained/recon.pth"
+depth_ckpt_path: "deps/CLIP2Point/pretrained/vit32/best_eval.pth"

@@ -1,0 +1,59 @@
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local environments and editor files
+.venv/
+venv/
+env/
+.env
+.env.*
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime logs
+*.log
+logs/
+runs/
+wandb/
+tensorboard/
+
+# Experiment outputs and checkpoints
+outputs/
+outputs_*/
+outputs*/
+checkpoints/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+
+# Local datasets and external pretrained dependencies
+data/
+datasets/
+ModelNet40*/
+ScanObjectNN*/
+ShapeNet*/
+CO3D*/
+deps/
+pretrained/
+
+# Generated media or temporary files
+*.tmp
+*.bak
+*.zip
+*.tar
+*.tar.gz
+*.tgz

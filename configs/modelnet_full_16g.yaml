@@ -1,0 +1,68 @@
+seed: 42
+
+# 16GB GPU sizing:
+# Paper uses batch size 16 on a 24GB RTX 3090. On a 16GB GPU, use gradient
+# accumulation to match the effective batch size while keeping activations lower.
+batch_size: 8
+grad_accum_steps: 2
+num_workers: 8
+point_cloud_size: 2048
+depth_resolution: 224
+# The bundled CLIP2Point selector supports only 6 or 10 rendered views.
+num_views: 10
+
+# Base training
+# Large epoch cap with early stopping. Base lr/weight decay follow the paper.
+base_epochs: 100
+base_lr: 5.0e-4
+base_weight_decay: 1.0e-4
+augmentation: true
+
+# Incremental training
+# Large epoch cap with early stopping. LR is cosine annealed to 1e-4.
+inc_epochs: 50
+inc_lr: 1.0e-3
+inc_lr_min: 1.0e-4
+inc_weight_decay: 1.0e-4
+
+# Early stopping monitors validation accuracy.
+early_stopping: true
+early_stop_min_delta: 0.001
+base_early_stop_warmup: 20
+base_early_stop_patience: 15
+inc_early_stop_warmup: 8
+inc_early_stop_patience: 8
+
+# BND
+bnd_epochs: 10
+bnd_lr: 1.0e-3
+bnd_threshold: 0.1
+
+# SAGR
+sagr_layers: [0, 4, 8]
+mask_ratio: 0.9
+num_sa_layers: 2
+
+# Loss weights
+alpha: 1.0
+beta: 0.1
+gamma: 2.0
+use_clip_logits_during_training: true
+clip_logit_weight: 1.0
+
+# Exemplar
+exemplars_per_class: 1
+
+# Text template
+text_template: "a photo of a {}"
+
+# Model dimensions
+recon_feat_dim: 384
+recon_num_layers: 12
+depth_feat_dim: 512
+depth_num_layers: 12
+clip_feat_dim: 512
+
+# Paths are supplied by the run script; these are fallback defaults.
+recon_ckpt_path: "../deps/ReCon/pretrained/recon.pth"
+depth_ckpt_path: "../deps/CLIP2Point/pretrained/vit32/best_eval.pth"
