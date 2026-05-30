@@ -66,3 +66,22 @@ clip_feat_dim: 512
 # Paths are supplied by the run script; these are fallback defaults.
 recon_ckpt_path: "../deps/ReCon/pretrained/recon.pth"
 depth_ckpt_path: "../deps/CLIP2Point/pretrained/vit32/best_eval.pth"
+
+
+  # gamma: 10.0
+  # use_clip_logits_during_training: false
+  # clip_logit_weight: 1.0
+
+  # 其中对 base 真正关键的是：
+
+  # use_clip_logits_during_training: false
+
+  # 因为修复前虽然 YAML 写的是 true，但没传进模型，所以模型实际用的是默认 False。
+
+  # 更准确地说：
+
+  # 要复现之前的 base：
+  # - use_clip_logits_during_training = false
+  # - 其他 base 相关配置保持不变
+
+  # gamma 改不改，对 base 精度基本没有影响；它主要影响后面的增量阶段。
