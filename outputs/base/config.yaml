@@ -1,0 +1,34 @@
+alpha: 1.0
+augmentation: false
+base_epochs: 10
+base_lr: 0.0005
+base_weight_decay: 0.0001
+batch_size: 22
+beta: 1.0
+bnd_epochs: 10
+bnd_lr: 0.001
+bnd_threshold: 0.1
+clip_feat_dim: 512
+depth_ckpt_path: deps/CLIP2Point/pretrained/vit32/best_eval.pth
+depth_feat_dim: 512
+depth_num_layers: 12
+depth_resolution: 224
+exemplars_per_class: 1
+inc_epochs: 20
+inc_lr: 0.001
+inc_lr_min: 0.0001
+inc_weight_decay: 0.0001
+mask_ratio: 0.9
+num_sa_layers: 2
+num_views: 10
+num_workers: 4
+point_cloud_size: 2048
+recon_ckpt_path: deps/ReCon/pretrained/recon.pth
+recon_feat_dim: 384
+recon_num_layers: 12
+sagr_layers:
+- 0
+- 4
+- 8
+seed: 42
+text_template: a photo of a {}

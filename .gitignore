@@ -24,16 +24,23 @@ env/
 *.swo
 
 # Runtime logs
-*.log
+# Root-level experiment logs are tracked for reproducibility.
 logs/
 runs/
 wandb/
 tensorboard/
 
 # Experiment outputs and checkpoints
-outputs/
-outputs_*/
+# Track lightweight result files under outputs*, but keep checkpoints out.
 outputs*/
+!outputs*/
+outputs*/**
+!outputs*/**/
+!outputs*/**/*.yaml
+!outputs*/**/*.yml
+!outputs*/**/*.json
+!outputs*/**/*.csv
+!outputs*/**/*.txt
 checkpoints/
 *.ckpt
 *.pth

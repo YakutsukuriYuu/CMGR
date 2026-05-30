@@ -1,0 +1,65 @@
+============================================
+CMGR Incremental Training
+Started: 2026-05-29 16:49:23
+============================================
+/home/qiansu/main/clip/.venv/lib/python3.10/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+2026-05-29 16:49:30,219 - Transformer - INFO - missing_keys
+2026-05-29 16:49:30,219 - Transformer - INFO - Some model parameters or buffers are not found in the checkpoint:
+  cls_head_finetune.0.{weight, bias}
+2026-05-29 16:49:30,219 - Transformer - INFO - unexpected_keys
+2026-05-29 16:49:30,219 - Transformer - INFO - The checkpoint state_dict contains keys that are not used by the model:
+  mask_token
+  decoder_pos_embed.0.{weight, bias}
+  decoder_pos_embed.2.{weight, bias}
+  MAE_decoder.blocks.0.norm1.{weight, bias}
+  MAE_decoder.blocks.0.norm2.{weight, bias}
+  MAE_decoder.blocks.0.mlp.fc1.{weight, bias}
+  MAE_decoder.blocks.0.mlp.fc2.{weight, bias}
+  MAE_decoder.blocks.0.attn.qkv.weight
+  MAE_decoder.blocks.0.attn.proj.{weight, bias}
+  MAE_decoder.blocks.1.norm1.{weight, bias}
+  MAE_decoder.blocks.1.norm2.{weight, bias}
+  MAE_decoder.blocks.1.mlp.fc1.{weight, bias}
+  MAE_decoder.blocks.1.mlp.fc2.{weight, bias}
+  MAE_decoder.blocks.1.attn.qkv.weight
+  MAE_decoder.blocks.1.attn.proj.{weight, bias}
+  MAE_decoder.blocks.2.norm1.{weight, bias}
+  MAE_decoder.blocks.2.norm2.{weight, bias}
+  MAE_decoder.blocks.2.mlp.fc1.{weight, bias}
+  MAE_decoder.blocks.2.mlp.fc2.{weight, bias}
+  MAE_decoder.blocks.2.attn.qkv.weight
+  MAE_decoder.blocks.2.attn.proj.{weight, bias}
+  MAE_decoder.blocks.3.norm1.{weight, bias}
+  MAE_decoder.blocks.3.norm2.{weight, bias}
+  MAE_decoder.blocks.3.mlp.fc1.{weight, bias}
+  MAE_decoder.blocks.3.mlp.fc2.{weight, bias}
+  MAE_decoder.blocks.3.attn.qkv.weight
+  MAE_decoder.blocks.3.attn.proj.{weight, bias}
+  MAE_decoder.norm.{weight, bias}
+  increase_dim.0.{weight, bias}
+  img_proj.{weight, bias}
+  text_proj.{weight, bias}
+2026-05-29 16:49:30,219 - Transformer - INFO - [Transformer] Successful Loading the ckpt from ../deps/ReCon/pretrained/recon.pth
+Using device: cuda:0
+Base classes (20): ['airplane', 'bathtub', 'bed', 'bench', 'bookshelf', 'bottle', 'bowl', 'car', 'chair', 'cone', 'cup', 'curtain', 'desk', 'door', 'dresser', 'flower_pot', 'glass_box', 'guitar', 'keyboard', 'lamp']
+Novel classes (20): ['laptop', 'mantel', 'monitor', 'night_stand', 'person', 'piano', 'plant', 'radio', 'range_hood', 'sink', 'sofa', 'stairs', 'stool', 'table', 'tent', 'toilet', 'tv_stand', 'vase', 'wardrobe', 'xbox']
+Incremental tasks: 4 x 5 classes
+
+Loading base model (NetB)...
+[ReConEncoder] All parameters frozen.
+[DepthEncoder] Loaded 152/152 parameters from ../deps/CLIP2Point/pretrained/vit32/best_eval.pth
+[CLIPWrapper] Loaded CLIP ViT-B/32
+[CMGR] Loaded NetB from outputs_v3/base/netB_best.pth
+[CMGR] Incremental mode: depth encoder frozen, only SAGR + TAM trainable.
+Base accuracy (Task 0): 0.7354
+Storing teacher features for KD...
+[CMGR] Stored teacher features for 20 base classes (KD weight gamma=10.0)
+[CMGR] Stored base NetB snapshot for BND routing.
+
+============================================================
+Incremental Task 1/4
+============================================================
+Novel classes: ['laptop', 'mantel', 'monitor', 'night_stand', 'person']
+Total seen classes: 25
+Extracting features for BND...
