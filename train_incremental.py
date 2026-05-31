@@ -153,6 +153,139 @@ def evaluate(model, dataloader, device, class_names, base_class_names=None,
     return total_correct / total_samples if total_samples > 0 else 0.0
 
 
+@torch.no_grad()
+def evaluate_with_routing(model, dataloader, device, class_names,
+                          base_class_names, bnd_threshold=0.1):
+    """Evaluate one test split and report both accuracy and BND base-route rate."""
+    model.eval()
+    total_correct = 0
+    total_samples = 0
+    routed_base = 0
+
+    for point_clouds, labels in tqdm(dataloader, desc='Evaluating split'):
+        point_clouds = point_clouds.to(device)
+        labels = labels.to(device)
+
+        predictions, is_base = model.inference(
+            point_clouds, class_names, base_class_names,
+            threshold=bnd_threshold,
+        )
+
+        total_correct += (predictions == labels).sum().item()
+        routed_base += is_base.sum().item()
+        total_samples += point_clouds.shape[0]
+
+    if total_samples == 0:
+        return 0.0, 0.0, 0
+    return total_correct / total_samples, routed_base / total_samples, total_samples
+
+
+def flatten_exemplar_indices(exemplar_indices, include_class_ids=None,
+                             exclude_class_ids=None):
+    """Flatten a class_id -> indices mapping into one Python list."""
+    include_class_ids = (
+        {int(cls_id) for cls_id in include_class_ids}
+        if include_class_ids is not None else None
+    )
+    exclude_class_ids = (
+        {int(cls_id) for cls_id in exclude_class_ids}
+        if exclude_class_ids is not None else set()
+    )
+    flat = []
+    for cls_id, idx_list in exemplar_indices.items():
+        cls_id = int(cls_id)
+        if include_class_ids is not None and cls_id not in include_class_ids:
+            continue
+        if cls_id in exclude_class_ids:
+            continue
+        flat.extend(int(idx) for idx in idx_list)
+    return flat
+
+
+def build_session_class_names(all_classes, num_base, classes_per_task, session_id):
+    """Return class names for session 0 (base) or one incremental session."""
+    if session_id == 0:
+        return all_classes[:num_base]
+    start = num_base + (session_id - 1) * classes_per_task
+    end = min(start + classes_per_task, len(all_classes))
+    return all_classes[start:end]
+
+
+def weighted_average(values, weights):
+    valid = [(v, w) for v, w in zip(values, weights) if v is not None and w > 0]
+    total = sum(w for _, w in valid)
+    if total == 0:
+        return None
+    return sum(v * w for v, w in valid) / total
+
+
+def evaluate_diagnostics(model, test_dataset, device, all_classes, seen_class_names,
+                         base_classes, num_base, classes_per_task, max_session,
+                         config):
+    """Evaluate per-session accuracy/routing rows for the current model session."""
+    acc_row = [None] * (max_session + 1)
+    routing_row = [None] * (max_session + 1)
+    sample_counts = [0] * (max_session + 1)
+    threshold = config.get('bnd_threshold', 0.1)
+
+    for session_id in range(max_session + 1):
+        session_classes = build_session_class_names(
+            all_classes, num_base, classes_per_task, session_id
+        )
+        session_indices = get_dataset_indices_from_names(test_dataset, session_classes)
+        sample_counts[session_id] = len(session_indices)
+        if not session_indices:
+            continue
+
+        session_loader = DataLoader(
+            Subset(test_dataset, session_indices),
+            batch_size=config['batch_size'],
+            shuffle=False,
+            num_workers=config['num_workers'],
+            pin_memory=True,
+        )
+        acc, route_rate, _ = evaluate_with_routing(
+            model, session_loader, device, seen_class_names,
+            base_classes, bnd_threshold=threshold,
+        )
+        acc_row[session_id] = acc
+        routing_row[session_id] = route_rate
+
+    base_acc = acc_row[0]
+    old_novel_acc = None
+    if max_session > 1:
+        old_novel_acc = weighted_average(
+            acc_row[1:max_session],
+            sample_counts[1:max_session],
+        )
+    current_novel_acc = acc_row[max_session] if max_session > 0 else None
+    cumulative_acc = weighted_average(
+        acc_row[:max_session + 1],
+        sample_counts[:max_session + 1],
+    )
+
+    group_acc = {
+        'model_session': max_session,
+        'base_acc': base_acc,
+        'old_novel_acc': old_novel_acc,
+        'current_novel_acc': current_novel_acc,
+        'cumulative_acc_from_matrix': cumulative_acc,
+    }
+
+    return acc_row, routing_row, sample_counts, group_acc
+
+
+def get_dataset_indices_from_names(dataset, class_names):
+    target_idxs = {
+        dataset.class_to_idx[cls_name]
+        for cls_name in class_names
+        if cls_name in dataset.class_to_idx
+    }
+    if not target_idxs:
+        return []
+    return [i for i, (_, label) in enumerate(dataset.samples) if label in target_idxs]
+
+
 def main():
     args = parse_args()
     config = load_config(args.config)
@@ -223,8 +356,10 @@ def main():
     # Load exemplars
     exemplar_path = os.path.join(args.base_dir, 'exemplars.pth')
     exemplar_data = torch.load(exemplar_path, map_location='cpu')
-    base_exemplar_indices = exemplar_data['exemplar_indices']
+    base_only_exemplar_indices = deepcopy(exemplar_data['exemplar_indices'])
+    seen_exemplar_indices = deepcopy(base_only_exemplar_indices)
     base_class_ids = exemplar_data['class_ids']
+    base_class_id_set = {int(cls_id) for cls_id in base_class_ids}
 
     # ---------------------------------------------------------------
     # 2. Create datasets
@@ -247,19 +382,17 @@ def main():
 
     def get_dataset_indices(dataset, class_names):
         """Get all sample indices for given class names (O(N) in-memory scan)."""
-        target_idxs = set()
-        for cls_name in class_names:
-            if cls_name in dataset.class_to_idx:
-                target_idxs.add(dataset.class_to_idx[cls_name])
-        if not target_idxs:
-            return []
-        # Scan the pre-built samples list instead of calling __getitem__
-        return [i for i, (_, label) in enumerate(dataset.samples) if label in target_idxs]
+        return get_dataset_indices_from_names(dataset, class_names)
 
     # ---------------------------------------------------------------
     # 4. Incremental training
     # ---------------------------------------------------------------
     metrics = MetricsTracker()
+    num_sessions = num_inc_tasks + 1
+    acc_matrix = [[None] * num_sessions for _ in range(num_sessions)]
+    routing_matrix = [[None] * num_sessions for _ in range(num_sessions)]
+    session_sample_counts = [0] * num_sessions
+    group_accuracies = []
 
     # Load base accuracy as task 0
     base_acc_path = os.path.join(args.base_dir, 'best_acc.yaml')
@@ -280,18 +413,16 @@ def main():
 
     print(f"Base accuracy (Task 0): {base_accuracy:.4f}")
     metrics.record_task(0, base_accuracy)
+    acc_matrix[0][0] = base_accuracy
 
     seen_class_names = list(base_classes)
-    all_seen_class_ids = list(range(num_base))  # dataset indices
 
     # ---------------------------------------------------------------
     # Store teacher features for knowledge distillation (anti-forgetting)
     # ---------------------------------------------------------------
     # Use all base exemplar samples as teacher set
     print("Storing teacher features for KD...")
-    base_exemplar_all_indices = []
-    for cls_id, idx_list in base_exemplar_indices.items():
-        base_exemplar_all_indices.extend(idx_list)
+    base_exemplar_all_indices = flatten_exemplar_indices(base_only_exemplar_indices)
     teacher_subset = Subset(train_dataset, base_exemplar_all_indices)
     teacher_loader = DataLoader(
         teacher_subset, batch_size=config['batch_size'],
@@ -326,24 +457,31 @@ def main():
         # -------------------------------------------------------
         print("Extracting features for BND...")
 
-        # Base exemplar features
-        base_exemplar_all_indices = []
-        for cls_id, idx_list in base_exemplar_indices.items():
-            base_exemplar_all_indices.extend(idx_list)
-        base_subset = Subset(train_dataset, base_exemplar_all_indices)
+        # BND is a base-vs-novel router: positive samples are always
+        # the original base exemplars, not all previously seen classes.
+        bnd_base_indices = flatten_exemplar_indices(base_only_exemplar_indices)
+        base_subset = Subset(train_dataset, bnd_base_indices)
         base_loader = DataLoader(base_subset, batch_size=config['batch_size'],
                                  shuffle=False, num_workers=config['num_workers'])
         base_features, _ = extract_features(model, base_loader, device)
 
-        # Novel class features
+        # Non-base features for BND = current novel samples + previous
+        # novel exemplars. They must all route to the current incremental net.
         novel_indices = get_dataset_indices(train_dataset, task_novel_classes)
-        novel_subset = Subset(train_dataset, novel_indices)
+        previous_novel_exemplar_indices = flatten_exemplar_indices(
+            seen_exemplar_indices,
+            exclude_class_ids=base_class_id_set,
+        )
+        bnd_novel_indices = novel_indices + previous_novel_exemplar_indices
+        novel_subset = Subset(train_dataset, bnd_novel_indices)
         novel_loader = DataLoader(novel_subset, batch_size=config['batch_size'],
                                   shuffle=False, num_workers=config['num_workers'])
         novel_features, _ = extract_features(model, novel_loader, device)
 
         print(f"  Base exemplar features: {base_features.shape}")
-        print(f"  Novel features: {novel_features.shape}")
+        print(f"  Non-base features: {novel_features.shape} "
+              f"(current={len(novel_indices)}, "
+              f"old_novel_exemplars={len(previous_novel_exemplar_indices)})")
 
         # -------------------------------------------------------
         # 4b. Train BND
@@ -375,8 +513,9 @@ def main():
         # -------------------------------------------------------
         print(f"Starting incremental training for up to {config['inc_epochs']} epochs...")
 
-        # Training data = novel classes + base exemplars
-        inc_indices = novel_indices + base_exemplar_all_indices
+        # Training data = current novel classes + all stored seen exemplars.
+        seen_exemplar_all_indices = flatten_exemplar_indices(seen_exemplar_indices)
+        inc_indices = novel_indices + seen_exemplar_all_indices
         inc_dataset = Subset(train_dataset, inc_indices)
         inc_loader = DataLoader(
             inc_dataset, batch_size=config['batch_size'],
@@ -466,6 +605,39 @@ def main():
         metrics.record_task(task_id + 1, best_acc)
 
         # -------------------------------------------------------
+        # 4d. Diagnostics: acc matrix and BND routing matrix
+        # -------------------------------------------------------
+        model_session = task_id + 1
+        acc_row, routing_row, sample_counts, group_acc = evaluate_diagnostics(
+            model=model,
+            test_dataset=test_dataset,
+            device=device,
+            all_classes=all_classes,
+            seen_class_names=seen_class_names,
+            base_classes=base_classes,
+            num_base=num_base,
+            classes_per_task=args.classes_per_task,
+            max_session=model_session,
+            config=config,
+        )
+        session_sample_counts[:model_session + 1] = sample_counts[:model_session + 1]
+        acc_matrix[model_session][:model_session + 1] = acc_row[:model_session + 1]
+        routing_matrix[model_session][:model_session + 1] = routing_row[:model_session + 1]
+        group_accuracies.append(group_acc)
+
+        print("  Diagnostics:", flush=True)
+        print(f"    acc row: {acc_matrix[model_session][:model_session + 1]}", flush=True)
+        print(f"    routing row: {routing_matrix[model_session][:model_session + 1]}", flush=True)
+        print(
+            "    group acc: "
+            f"base={group_acc['base_acc']}, "
+            f"old_novel={group_acc['old_novel_acc']}, "
+            f"current_novel={group_acc['current_novel_acc']}, "
+            f"cumulative={group_acc['cumulative_acc_from_matrix']}",
+            flush=True,
+        )
+
+        # -------------------------------------------------------
         # 4e. Update exemplars
         # -------------------------------------------------------
         exemplar_sampler = ExemplarSampler(
@@ -477,7 +649,7 @@ def main():
                          if c in dataset_class_to_idx]
         exemplar_sampler.update_exemplars(train_dataset, novel_cls_ids)
         for cls_id, indices in exemplar_sampler.exemplars.items():
-            base_exemplar_indices[cls_id] = indices
+            seen_exemplar_indices[cls_id] = indices
 
         # -------------------------------------------------------
         # 4f. Save checkpoint (final + best already saved)
@@ -493,6 +665,10 @@ def main():
     print(f"{'='*60}")
 
     summary = metrics.summary()
+    summary['acc_matrix'] = acc_matrix
+    summary['routing_matrix'] = routing_matrix
+    summary['session_sample_counts'] = session_sample_counts
+    summary['group_accuracies'] = group_accuracies
     print(f"Accuracy curve: {summary['accuracies']}")
     print(f"Final accuracy: {summary['final_accuracy']:.4f}")
     print(f"Average Accuracy (AA): {summary['AA']:.4f}")
