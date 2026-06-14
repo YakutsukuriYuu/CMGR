@@ -1,0 +1,79 @@
+seed: 42
+
+# Ablation protocol: ModelNet40 -> ModelNet40 (M2M)
+train_dataset: modelnet
+test_dataset: modelnet
+num_base_classes: 20
+incremental_task_splits: [5, 5, 5, 5]
+
+# The run script overwrites these three flags for each ablation variant.
+ablation_variant: full
+use_sagr: true
+use_tam: true
+use_bnd: true
+
+# Re-evaluate base accuracy under the current module switches. This avoids
+# copying a saved Full-model base accuracy into disabled-module variants.
+use_saved_base_accuracy: false
+
+# 16GB GPU sizing
+batch_size: 8
+grad_accum_steps: 2
+num_workers: 8
+point_cloud_size: 2048
+depth_resolution: 224
+num_views: 10
+
+# Base training
+base_epochs: 100
+base_lr: 5.0e-4
+base_weight_decay: 1.0e-4
+augmentation: true
+
+# Incremental training
+inc_epochs: 50
+inc_lr: 1.0e-3
+inc_lr_min: 1.0e-4
+inc_weight_decay: 1.0e-4
+
+# Early stopping
+early_stopping: true
+early_stop_min_delta: 0.001
+base_early_stop_warmup: 20
+base_early_stop_patience: 15
+inc_early_stop_warmup: 8
+inc_early_stop_patience: 8
+
+# BND
+bnd_epochs: 10
+bnd_lr: 1.0e-3
+bnd_threshold: 0.1
+
+# SAGR
+sagr_layers: [0, 4, 8]
+mask_ratio: 0.9
+num_sa_layers: 2
+
+# Loss weights
+alpha: 1.0
+beta: 0.1
+gamma: 2.0
+use_clip_logits_during_training: true
+clip_logit_weight: 1.0
+
+# Exemplar
+exemplars_per_class: 1
+
+# Text template
+text_template: "a photo of a {}"
+
+# Model dimensions
+recon_feat_dim: 384
+recon_num_layers: 12
+depth_feat_dim: 512
+depth_num_layers: 12
+clip_feat_dim: 512
+
+# Paths are supplied by the run script; these are fallback defaults.
+recon_ckpt_path: "../deps/ReCon/pretrained/recon.pth"
+depth_ckpt_path: "../deps/CLIP2Point/pretrained/vit32/best_eval.pth"

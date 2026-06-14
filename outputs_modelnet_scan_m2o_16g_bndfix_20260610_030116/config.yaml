@@ -1,0 +1,86 @@
+seed: 42
+
+# ModelNet -> ScanObjectNN (M2O) protocol.
+# Base classes are the first 26 ModelNet40 classes. Novel classes are the
+# 11 ScanObjectNN classes that do not overlap with those base classes.
+train_dataset: modelnet
+test_dataset: scanobjectnn
+scan_variant: OBJ_BG
+num_base_classes: 26
+incremental_task_splits: [4, 4, 3]
+novel_class_names:
+  - bag
+  - bin
+  - box
+  - cabinet
+  - display
+  - shelf
+  - table
+  - pillow
+  - sink
+  - sofa
+  - toilet
+
+# 16GB GPU sizing: physical batch size 8 with gradient accumulation gives
+# effective batch size 16, matching the paper's single-3090 setting.
+batch_size: 8
+grad_accum_steps: 2
+num_workers: 8
+point_cloud_size: 2048
+depth_resolution: 224
+# The bundled CLIP2Point selector supports only 6 or 10 rendered views.
+num_views: 10
+
+# Base training
+base_epochs: 100
+base_lr: 5.0e-4
+base_weight_decay: 1.0e-4
+augmentation: true
+
+# Incremental training
+inc_epochs: 50
+inc_lr: 1.0e-3
+inc_lr_min: 1.0e-4
+inc_weight_decay: 1.0e-4
+
+# Early stopping monitors validation accuracy.
+early_stopping: true
+early_stop_min_delta: 0.001
+base_early_stop_warmup: 20
+base_early_stop_patience: 15
+inc_early_stop_warmup: 8
+inc_early_stop_patience: 8
+
+# BND
+bnd_epochs: 10
+bnd_lr: 1.0e-3
+bnd_threshold: 0.1
+
+# SAGR
+sagr_layers: [0, 4, 8]
+mask_ratio: 0.9
+num_sa_layers: 2
+
+# Loss weights
+alpha: 1.0
+beta: 0.1
+gamma: 2.0
+use_clip_logits_during_training: true
+clip_logit_weight: 1.0
+
+# Exemplar
+exemplars_per_class: 1
+
+# Text template
+text_template: "a photo of a {}"
+
+# Model dimensions
+recon_feat_dim: 384
+recon_num_layers: 12
+depth_feat_dim: 512
+depth_num_layers: 12
+clip_feat_dim: 512
+
+# Paths are supplied by the run script; these are fallback defaults.
+recon_ckpt_path: "../deps/ReCon/pretrained/recon.pth"
+depth_ckpt_path: "../deps/CLIP2Point/pretrained/vit32/best_eval.pth"

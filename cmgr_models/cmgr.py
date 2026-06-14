@@ -36,6 +36,9 @@ class CMGR(nn.Module):
             'use_clip_logits_during_training', False
         )
         self.clip_logit_weight = config.get('clip_logit_weight', 1.0)
+        self.use_sagr = config.get('use_sagr', True)
+        self.use_tam = config.get('use_tam', True)
+        self.use_bnd = config.get('use_bnd', True)
 
         # Teacher features for knowledge distillation (incremental training)
         self.register_buffer('_teacher_features', None, persistent=False)
@@ -107,7 +110,20 @@ class CMGR(nn.Module):
         for param in self.depth_encoder.parameters():
             param.requires_grad = False
         self.depth_encoder.eval()
-        print("[CMGR] Incremental mode: depth encoder frozen, only SAGR + TAM trainable.")
+        trainable_modules = []
+        if self.use_sagr:
+            trainable_modules.append('SAGR')
+        if self.use_tam:
+            trainable_modules.append('TAM')
+        trainable_desc = ' + '.join(trainable_modules) if trainable_modules else 'no module'
+        print(f"[CMGR] Incremental mode: depth encoder frozen, {trainable_desc} trainable.")
+
+    @staticmethod
+    def _depth_maps_to_rgb(depth_maps):
+        """Return RGB depth maps when TAM is disabled."""
+        if depth_maps.shape[2] == 1:
+            return depth_maps.expand(-1, -1, 3, -1, -1)
+        return depth_maps
 
     @torch.no_grad()
     def store_teacher_features(self, dataloader, class_names, num_base_classes):
@@ -139,16 +155,20 @@ class CMGR(nn.Module):
             depth_maps, depth_final, depth_intermediates = self.depth_encoder(point_clouds)
             B, V, C, H, W = depth_maps.shape
 
-            enhanced_maps, _ = self.tam(depth_maps, recon_pooled)
-            sagr_features, _ = self.sagr(
-                recon_intermediates, depth_intermediates,
-                recon_final, depth_final,
-            )
-            F_hat = self.sagr.aggregate_views(
-                F_P=recon_final,
-                F_U=sagr_features,
-                F_D=depth_final,
-            )
+            if self.use_tam:
+                self.tam(depth_maps, recon_pooled)
+            if self.use_sagr:
+                sagr_features, _ = self.sagr(
+                    recon_intermediates, depth_intermediates,
+                    recon_final, depth_final,
+                )
+                F_hat = self.sagr.aggregate_views(
+                    F_P=recon_final,
+                    F_U=sagr_features,
+                    F_D=depth_final,
+                )
+            else:
+                F_hat = depth_final
             F_hat_pooled = F_hat.reshape(B, V, -1).mean(dim=1)
 
             for c in range(num_base_classes):
@@ -175,8 +195,10 @@ class CMGR(nn.Module):
         Incremental training: SAGR + TAM + depth encoder proj layer
         """
         params = []
-        params.extend(self.sagr.parameters())
-        params.extend(self.tam.parameters())
+        if self.use_sagr:
+            params.extend(self.sagr.parameters())
+        if self.use_tam:
+            params.extend(self.tam.parameters())
         if not self._incremental_mode:
             params.extend(self.depth_encoder.get_trainable_params())
         return params
@@ -202,23 +224,29 @@ class CMGR(nn.Module):
         B, V, C, H, W = depth_maps.shape
 
         # Step 3: TAM enhancement
-        enhanced_maps, learned_color = self.tam(depth_maps, recon_pooled)
+        if self.use_tam:
+            enhanced_maps, learned_color = self.tam(depth_maps, recon_pooled)
+        else:
+            enhanced_maps = self._depth_maps_to_rgb(depth_maps)
+            learned_color = None
 
         # Step 4: SAGR rectification
-        sagr_features, mc_loss = self.sagr(
-            recon_intermediates, depth_intermediates,
-            recon_final, depth_final,
-        )
+        if self.use_sagr:
+            sagr_features, mc_loss = self.sagr(
+                recon_intermediates, depth_intermediates,
+                recon_final, depth_final,
+            )
+            if self.training:
+                losses['mc_loss'] = mc_loss
 
-        if self.training:
-            losses['mc_loss'] = mc_loss
-
-        # Step 5: Cross-view aggregation
-        F_hat = self.sagr.aggregate_views(
-            F_P=recon_final,
-            F_U=sagr_features,
-            F_D=depth_final,
-        )
+            # Step 5: Cross-view aggregation
+            F_hat = self.sagr.aggregate_views(
+                F_P=recon_final,
+                F_U=sagr_features,
+                F_D=depth_final,
+            )
+        else:
+            F_hat = depth_final
         F_hat_pooled = F_hat.reshape(B, V, -1).mean(dim=1)  # [B, 512]
         self._last_F_hat_pooled = F_hat_pooled  # for KD loss in compute_loss
 
@@ -269,7 +297,7 @@ class CMGR(nn.Module):
             logits = F_hat_pooled
 
         # Step 8: Color alignment loss (batched: all B*V images in one forward pass)
-        if (self.training and text_features is not None and labels is not None and
+        if (self.use_tam and self.training and text_features is not None and labels is not None and
                 clip_img_features_train is not None):
             gt_text_features = text_features[labels]  # [B, 512]
             feat_all = clip_img_features_train.reshape(B, V, -1)  # [B, V, 512]
@@ -358,6 +386,13 @@ class CMGR(nn.Module):
             predictions: [B] predicted class indices (into class_names).
             is_base: [B] boolean mask of BND base predictions.
         """
+        if not self.use_bnd:
+            logits, _ = self.forward(point_clouds, class_names)
+            predictions = logits.argmax(dim=-1)
+            is_base = torch.zeros(point_clouds.shape[0], dtype=torch.bool,
+                                  device=point_clouds.device)
+            return predictions, is_base
+
         recon_final, _ = self.recon_encoder(point_clouds)
         is_base, _ = self.bnd.predict(recon_final, threshold)
 

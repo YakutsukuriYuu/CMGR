@@ -1,0 +1,146 @@
+AA: 0.6598890686967996
+AF: 0.0
+acc_matrix:
+- - 0.9409317803660566
+  - null
+  - null
+  - null
+  - null
+- - 0.9367720465890182
+  - 0.0
+  - null
+  - null
+  - null
+- - 0.9384359400998337
+  - 0.0
+  - 0.008823529411764706
+  - null
+  - null
+- - 0.9434276206322796
+  - 0.0
+  - 0.014705882352941176
+  - 0.0
+  - null
+- - 0.9351081530782029
+  - 0.0
+  - 0.014705882352941176
+  - 0.0038461538461538464
+  - 0.17647058823529413
+accuracies:
+- 0.9409317803660566
+- 0.7408376963350786
+- 0.607066381156317
+- 0.5328947368421053
+- 0.47771474878444087
+delta_A: 0.1547377437829226
+final_accuracy: 0.47771474878444087
+group_accuracies:
+- base_acc: 0.9367720465890182
+  cumulative_acc_from_matrix: 0.7369109947643979
+  current_novel_acc: 0.0
+  model_session: 1
+  old_novel_acc: null
+- base_acc: 0.9384359400998337
+  cumulative_acc_from_matrix: 0.6054603854389722
+  current_novel_acc: 0.008823529411764706
+  model_session: 2
+  old_novel_acc: 0.0
+- base_acc: 0.9434276206322796
+  cumulative_acc_from_matrix: 0.5352443609022557
+  current_novel_acc: 0.0
+  model_session: 3
+  old_novel_acc: 0.0075075075075075074
+- base_acc: 0.9351081530782029
+  cumulative_acc_from_matrix: 0.4821717990275527
+  current_novel_acc: 0.17647058823529413
+  model_session: 4
+  old_novel_acc: 0.0064794816414686825
+protocol:
+  ablation_variant: v3_bnd
+  base_classes:
+  - airplane
+  - bathtub
+  - bed
+  - bench
+  - bookshelf
+  - bottle
+  - bowl
+  - car
+  - chair
+  - cone
+  - cup
+  - curtain
+  - desk
+  - door
+  - dresser
+  - flower_pot
+  - glass_box
+  - guitar
+  - keyboard
+  - lamp
+  novel_classes:
+  - laptop
+  - mantel
+  - monitor
+  - night_stand
+  - person
+  - piano
+  - plant
+  - radio
+  - range_hood
+  - sink
+  - sofa
+  - stairs
+  - stool
+  - table
+  - tent
+  - toilet
+  - tv_stand
+  - vase
+  - wardrobe
+  - xbox
+  scan_variant: OBJ_BG
+  task_splits:
+  - 5
+  - 5
+  - 5
+  - 5
+  test_data_root: ../data/ModelNet40_Align
+  test_dataset: modelnet
+  train_data_root: ../data/ModelNet40_Align
+  train_dataset: modelnet
+  use_bnd: true
+  use_sagr: false
+  use_tam: false
+routing_matrix:
+- - null
+  - null
+  - null
+  - null
+  - null
+- - 0.5782029950083195
+  - 0.027607361963190184
+  - null
+  - null
+  - null
+- - 0.46589018302828616
+  - 0.018404907975460124
+  - 0.041176470588235294
+  - null
+  - null
+- - 0.4633943427620632
+  - 0.027607361963190184
+  - 0.052941176470588235
+  - 0.057692307692307696
+  - null
+- - 0.5008319467554077
+  - 0.046012269938650305
+  - 0.07352941176470588
+  - 0.25384615384615383
+  - 0.023529411764705882
+session_sample_counts:
+- 1202
+- 326
+- 340
+- 260
+- 340

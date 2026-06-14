@@ -1,0 +1,113 @@
+AA: 0.8619308745167722
+AF: 0.0
+acc_matrix:
+- - 0.9508599508599509
+  - null
+  - null
+  - null
+- - 0.8808353808353808
+  - 0.84375
+  - null
+  - null
+- - 0.8445945945945946
+  - 0.23125
+  - 0.9397590361445783
+  - null
+- - 0.9090909090909091
+  - 0.01875
+  - 0.5120481927710844
+  - 0.9518072289156626
+accuracies:
+- 0.9508599508599509
+- 0.8808724832214765
+- 0.804503582395087
+- 0.8114874815905744
+delta_A: 0.05632742700364923
+final_accuracy: 0.8114874815905744
+group_accuracies:
+- base_acc: 0.8808353808353808
+  cumulative_acc_from_matrix: 0.87751677852349
+  current_novel_acc: 0.84375
+  model_session: 1
+  old_novel_acc: null
+- base_acc: 0.8445945945945946
+  cumulative_acc_from_matrix: 0.8024564994882293
+  current_novel_acc: 0.9397590361445783
+  model_session: 2
+  old_novel_acc: 0.23125
+- base_acc: 0.9090909090909091
+  cumulative_acc_from_matrix: 0.8085419734904271
+  current_novel_acc: 0.9518072289156626
+  model_session: 3
+  old_novel_acc: 0.26993865030674846
+protocol:
+  base_classes:
+  - airplane
+  - bathtub
+  - bed
+  - bench
+  - bookshelf
+  - bottle
+  - bowl
+  - car
+  - chair
+  - cone
+  - cup
+  - curtain
+  - desk
+  - door
+  - dresser
+  - flower_pot
+  - glass_box
+  - guitar
+  - keyboard
+  - lamp
+  - laptop
+  - mantel
+  - monitor
+  - night_stand
+  - person
+  - piano
+  novel_classes:
+  - bag
+  - bin
+  - box
+  - cabinet
+  - display
+  - shelf
+  - table
+  - pillow
+  - sink
+  - sofa
+  - toilet
+  scan_variant: OBJ_BG
+  task_splits:
+  - 4
+  - 4
+  - 3
+  test_data_root: ../data/ScanObjectNN/main_split
+  test_dataset: scanobjectnn
+  train_data_root: ../data/ModelNet40_Align
+  train_dataset: modelnet
+routing_matrix:
+- - null
+  - null
+  - null
+  - null
+- - 0.8384520884520884
+  - 0.0125
+  - null
+  - null
+- - 0.8046683046683046
+  - 0.0
+  - 0.0
+  - null
+- - 0.9133906633906634
+  - 0.05625
+  - 0.030120481927710843
+  - 0.0
+session_sample_counts:
+- 1628
+- 160
+- 166
+- 83

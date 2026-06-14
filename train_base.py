@@ -206,6 +206,9 @@ def main():
             'use_clip_logits_during_training', False
         ),
         'clip_logit_weight': config.get('clip_logit_weight', 1.0),
+        'use_sagr': config.get('use_sagr', True),
+        'use_tam': config.get('use_tam', True),
+        'use_bnd': config.get('use_bnd', True),
         'text_template': config.get('text_template', 'a photo of a {}'),
         'recon_ckpt_path': args.recon_ckpt,
         'depth_ckpt_path': args.depth_ckpt,
@@ -230,6 +233,10 @@ def main():
     print(f"  Batch size: {config['batch_size']}")
     print(f"  Learning rate: {config['base_lr']}")
     print(f"  Num views: {config.get('num_views', 10)}")
+    print("  Module switches: "
+          f"SAGR={config.get('use_sagr', True)}, "
+          f"TAM={config.get('use_tam', True)}, "
+          f"BND={config.get('use_bnd', True)}")
     grad_accum_steps = max(1, int(config.get('grad_accum_steps', 1)))
     if grad_accum_steps > 1:
         print(f"  Gradient accumulation: {grad_accum_steps} "
